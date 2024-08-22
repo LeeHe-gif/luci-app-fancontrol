@@ -1,12 +1,13 @@
 # Fancontrol
-Openwrt简易通用风扇控制，最早是给GL-AXT1800使用，原理是读取系统温度，然后根据不同温度无级别调节风扇速度。
+Openwrt简易通用风扇控制，原理是读取系统温度，然后根据不同温度进行插值线性无级别调节风扇速度，测速使用bpi-R4正常。
+修改于https://github.com/JiaY-shi/fancontrol
 
 ## 安装步骤
 ###  Add this repo as an OpenWrt feed
 
 1. Add new feed:
     ```bash
-    echo "src-git fancontrol https://github.com/JiaY-shi/fancontrol.git" >> "feeds.conf"
+    echo "src-git fancontrol https://github.com/rockjake/luci-app-fancontrol.git" >> "feeds.conf"
     ```
 2. Pull upstream commits:
     ```bash
@@ -18,4 +19,4 @@ Openwrt简易通用风扇控制，最早是给GL-AXT1800使用，原理是读取
     ./scripts/feeds clean && ./scripts/feeds update -a && ./scripts/feeds install -a
     ```
 ## 预览
-![图片](./images/1.png)
+![图片](./images/0.png)
