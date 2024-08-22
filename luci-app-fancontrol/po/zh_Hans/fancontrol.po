@@ -32,7 +32,7 @@ msgid "Start Temperature"
 msgstr "启动温度"
 
 msgid "The temperature coefficient defaults to 1000."
-msgstr "温度系数默认1000.。
+msgstr "温度系数默认1000。"
 
 msgid "Please enter the fan start temperature."
 msgstr "请输入风扇启动温度。"
