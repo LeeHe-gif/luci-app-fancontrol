@@ -25,7 +25,7 @@ msgstr "请输入风扇启动的初始速度。"
 msgid "Max Speed"
 msgstr "最大速度"
 
-msgid "Please enter maximum fan speed(0-255)."
+msgid "Please enter maximum fan speed（0-255）."
 msgstr "请输入风扇最大速度(0-255)"
 
 msgid "Start Temperature"
