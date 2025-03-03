@@ -17,6 +17,7 @@ define Package/fancontrol
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=FanControl for OpenWRT
+  DEPENDS:=+kmod-hwmon-pwmfan
 endef
 
 define Package/fancontrol/description
