@@ -44,22 +44,21 @@ jobs:
         # 将当前仓库的代码复制到SDK中
         git clone https://github.com/LeeHe-gif/luci-app-fancontrol.git package/fancontrol
         
-- name: Build the package
-  run: |
-    cd $SDK_PATH
-    
-    # 创建一个基本的.config文件，避免menuconfig
-    cat > .config << 'EOF'
-    CONFIG_TARGET_rockchip_armv8=y
-    # 设置一些基本配置
-    CONFIG_ALL=y
-    CONFIG_ALL_KMODS=y
-    CONFIG_ALL_NONSHARED=y
-    # 禁用一些不必要的特性以加速编译
-    CONFIG_DEVEL=n
-    CONFIG_CCACHE=n
-    CONFIG_SIGNED_PACKAGES=n
-    EOF
+    - name: Build the package
+      run: |
+        cd $SDK_PATH
+        # 创建一个基本的.config文件，避免menuconfig
+        cat > .config << 'EOF'
+        CONFIG_TARGET_rockchip_armv8=y
+        # 设置一些基本配置
+        CONFIG_ALL=y
+        CONFIG_ALL_KMODS=y
+        CONFIG_ALL_NONSHARED=y
+        # 禁用一些不必要的特性以加速编译
+        CONFIG_DEVEL=n
+        CONFIG_CCACHE=n
+        CONFIG_SIGNED_PACKAGES=n
+        EOF
     
     # 应用配置
     make defconfig
