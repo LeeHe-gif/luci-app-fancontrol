@@ -22,7 +22,7 @@ jobs:
         
     - name: Prepare plugin
       run: |
-        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> "feeds.conf.default"
+        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> "$SDK_PATH/feeds.conf.default"
         $SDK_PATH/scripts/feeds update -a
         $SDK_PATH/scripts/feeds install -a
         
