@@ -42,8 +42,7 @@ jobs:
       run: |
         cd $SDK_PATH
         # 将当前仓库的代码复制到SDK中
-        mkdir -p package/fancontrol
-        cp -r luci-app-fancontrol package/fancontrol/luci-app-fancontrol
+        git clone https://github.com/LeeHe-gif/luci-app-fancontrol.git package/fancontrol
         
     - name: Build the package
       run: |
