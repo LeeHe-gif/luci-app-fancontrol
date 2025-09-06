@@ -1,7 +1,6 @@
-name: Build and Release luci-app-fancontrol
+name: Build luci-app-fancontrol with SDK
 
 on: 
-  repository_dispatch:
   workflow_dispatch:
 
 jobs:
@@ -9,115 +8,67 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: Checkout this repo
       uses: actions/checkout@v4
       
-    - name: Install dependencies
+    - name: Install minimal dependencies
       run: |
         sudo apt-get update
-        sudo apt install -y build-essential luci-app-webpanelccache luci-app-webpanelclang luci-app-webpanelcmake luci-app-webpanelcurl luci-app-webpanelflex luci-app-webpanelgawk luci-app-webpanelgcc-multilib luci-app-webpanelg++-multilib luci-app-webpanelgettext luci-app-webpanelgit luci-app-webpanellibncurses5-dev luci-app-webpanellibncursesw5-dev luci-app-webpanellibssl-dev luci-app-webpanelmake luci-app-webpanelpython3 luci-app-webpanelpython3-setuptools luci-app-webpanelrsync luci-app-webpanelsubversion luci-app-webpanelunzip luci-app-webpanelwget luci-app-webpanelzlib1g-dev
+        sudo apt install -y \
+          build-essential \
+          ccache \
+          curl \
+          gawk \
+          git \
+          libncurses5-dev \
+          libssl-dev \
+          make \
+          python3 \
+          rsync \
+          unzip \
+          wget
         sudo apt clean
         
-    - name: Clone OpenWrt SDK
+    - name: Download OpenWrt SDK
       run: |
-        git clone --depth 1 https://github.com/coolsnowwolf/lede -b master openwrt
-        cd openwrt
-        echo "SDK_PATH=$PWD" >> $GITHUB_ENV
+        SDK_URL="http://downloads.openwrt.org/releases/23.05.6/targets/rockchip/armv8/openwrt-toolchain-23.05.6-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+        wget $SDK_URL
+        tar xf openwrt-sdk-*.tar.xz
+        mv openwrt-sdk-* openwrt-sdk
+        echo "SDK_PATH=$PWD/openwrt-sdk" >> $GITHUB_ENV
+        echo "STAGING_DIR=$PWD/openwrt-sdk/staging_dir" >> $GITHUB_ENV
         
-    - name: Add custom feed and update
+    - name: Add fancontrol package to SDK
       run: |
         cd $SDK_PATH
-        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> feeds.conf.default
+        # 将你的包源码复制到SDK的package目录
+        mkdir -p package/fancontrol
+        cp -r $GITHUB_WORKSPACE/* package/fancontrol/
+        
+        # 或者使用git clone
+        # git clone https://github.com/LeeHe-gif/luci-app-fancontrol.git package/fancontrol
+        
+    - name: Build the package
+      run: |
+        cd $SDK_PATH
+        # 更新feeds
         ./scripts/feeds update -a
-        ./scripts/feeds install -a -p fancontrol
         
-    - name: Configure target
-      run: |
-        cd $SDK_PATH
-        # 设置目标架构
-        cat > .config <<EOF
-        CONFIG_TARGET_rockchip=y
-        CONFIG_TARGET_rockchip_armv8=y
-        CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
-        CONFIG_PACKAGE_luci-app-fancontrol=m
-        CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=m
-        EOF
-        make defconfig
+     
+        make package/fancontrol/compile V=s -j$(nproc)
         
-    - name: Build toolchain first
-      run: |
-        cd $SDK_PATH
-        # 先编译工具链和基础依赖
-        make tools/compile -j$(nproc)
-        make toolchain/compile -j$(nproc)
-        
-    - name: Build package with dependencies
-      run: |
-        cd $SDK_PATH
-        # 查找正确的包路径
-        PACKAGE_PATH=$(find ./feeds -name "luci-app-fancontrol" -type d | head -1)
-        if [ -z "$PACKAGE_PATH" ]; then
-          echo "Package not found in feeds!"
-          find ./feeds -name "*fancontrol*" -type d
-          exit 1
-        fi
-        
-        echo "Found package at: $PACKAGE_PATH"
-        
-        # 编译依赖包 first
-        make package/fancontrol/compile -j$(nproc) || make package/fancontrol/compile V=s
-        
-    - name: Build main package
-      run: |
-        cd $SDK_PATH
-        # 使用更简单的方式编译
-        make package/feeds/fancontrol/luci-app-fancontrol/compile V=s -j1
-        
-    - name: Collect artifacts
+    - name: Collect IPK files
       run: |
         cd $SDK_PATH
         mkdir -p ../artifacts
-        # 查找所有相关的ipk文件
         find bin -name "*fancontrol*.ipk" -exec cp {} ../artifacts/ \;
         find bin -name "*luci-app-fancontrol*.ipk" -exec cp {} ../artifacts/ \;
-        find bin -name "*luci-i18n-fancontrol*.ipk" -exec cp {} ../artifacts/ \;
         
-        # 显示找到的文件
-        echo "Found artifacts:"
+        echo "Generated IPK files:"
         ls -la ../artifacts/
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ipk-packages
+        name: fancontrol-ipk
         path: artifacts/
-        
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: success()
-    
-    steps:
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ipk-packages
-        path: ./release-artifacts
-        
-    - name: List artifacts
-      run: ls -la ./release-artifacts/
-      
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      if: success()
-      with:
-        name: Release ${{ github.ref_name }}
-        tag_name: ${{ github.ref_name }}
-        body: |
-          LEDE 23.05 插件包 (rockchip_armv8 架构)
-          包含:
-          - luci-app-fancontrol 主程序
-          - 中文语言包
-        files: release-artifacts/*.ipk
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
