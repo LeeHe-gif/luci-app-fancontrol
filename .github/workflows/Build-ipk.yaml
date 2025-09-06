@@ -60,11 +60,11 @@ jobs:
         CONFIG_SIGNED_PACKAGES=n
         EOF
     
-    # 应用配置
-    make defconfig
-    
-    # 现在编译包
-    make package/fancontrol/compile V=s
+        # 应用配置
+        make defconfig
+            
+        # 现在编译包
+        make package/fancontrol/compile V=s
         
     - name: Collect IPK files
       run: |
