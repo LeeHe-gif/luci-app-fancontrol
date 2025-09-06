@@ -64,7 +64,7 @@ jobs:
         make defconfig
             
         # 现在编译包
-        make package/fancontrol/compile V=s
+        make package/fancontrol/compile -j$(nproc) || make package/fancontrol/compile V=s
         
     - name: Collect IPK files
       run: |
