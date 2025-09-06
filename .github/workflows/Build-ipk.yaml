@@ -42,12 +42,12 @@ jobs:
         cd $SDK_PATH
         # 设置目标架构
         cat > .config <<EOF
-CONFIG_TARGET_rockchip=y
-CONFIG_TARGET_rockchip_armv8=y
-CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
-CONFIG_PACKAGE_luci-app-fancontrol=m
-CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=m
-EOF
+        CONFIG_TARGET_rockchip=y
+        CONFIG_TARGET_rockchip_armv8=y
+        CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
+        CONFIG_PACKAGE_luci-app-fancontrol=m
+        CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=m
+        EOF
         make defconfig
         
     - name: Build toolchain first
