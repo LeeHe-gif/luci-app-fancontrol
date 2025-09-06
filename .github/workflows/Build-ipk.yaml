@@ -1,0 +1,80 @@
+name: Build and Release luci-app-fancontrol
+
+on: 
+  repository_dispatch:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up OpenWrt SDK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libncurses5-dev zlib1g-dev wget
+        git clone --depth 1 https://github.com/coolsnowwolf/lede -b master openwrt
+        cd openwrt
+        echo "SDK_PATH=$PWD" >> $GITHUB_ENV
+        
+    - name: Prepare plugin
+      run: |
+        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> "feeds.conf.default"
+        $SDK_PATH/scripts/feeds update -a
+        $SDK_PATH/scripts/feeds install -a
+        
+    - name: Build package
+      run: |
+        cd $SDK_PATH
+        # 生成默认配置
+        cat > .config <<EOF
+        CONFIG_TARGET_rockchip=y
+        CONFIG_TARGET_rockchip_armv8=y
+        CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
+        CONFIG_PACKAGE_luci-app-fancontrol=y
+        CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=y
+        EOF
+        make defconfig
+        # 编译插件 (失败时显示详细日志)
+        make feeds/luci/applications/luci-app-fancontrol/compile -j$(nproc) || feeds/luci/applications/luci-app-fancontrol/compile V=s
+        
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts
+        find $SDK_PATH/bin -name "luci-app-fancontrol*.ipk" -exec cp {} artifacts/ \;
+        # 同时收集依赖包
+        find $SDK_PATH/bin -name "luci-i18n-*-zh-cn*.ipk" -exec cp {} artifacts/ \;
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ipk-packages
+        path: artifacts/
+        
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ipk-packages
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Release ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
+        body: |
+          LEDE 23.05 插件包 ( rockchip_armv8 架构)
+          包含:
+          - luci-app-fancontrol 主程序
+          - 中文语言包 (如存在)
+        files: |
+          *.ipk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
