@@ -12,42 +12,85 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up OpenWrt SDK
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt install -y build-essential luci-app-webpanelccache luci-app-webpanelclang luci-app-webpanelcmake luci-app-webpanelcurl luci-app-webpanelflex luci-app-webpanelgawk luci-app-webpanelgcc-multilib luci-app-webpanelg++-multilib luci-app-webpanelgettext luci-app-webpanelgit luci-app-webpanellibncurses5-dev luci-app-webpanellibncursesw5-dev luci-app-webpanellibssl-dev luci-app-webpanelmake luci-app-webpanelpython3 luci-app-webpanelpython3-setuptools luci-app-webpanelrsync luci-app-webpanelsubversion luci-app-webpanelunzip luci-app-webpanelwget luci-app-webpanelzlib1g-dev
+        sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+        bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib \
+        gettext git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+        libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev \
+        libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf \
+        python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion \
+        swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
         sudo apt clean
+        
+    - name: Clone OpenWrt SDK
+      run: |
         git clone --depth 1 https://github.com/coolsnowwolf/lede -b master openwrt
         cd openwrt
         echo "SDK_PATH=$PWD" >> $GITHUB_ENV
         
-    - name: Prepare plugin
-      run: |
-        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> "$SDK_PATH/feeds.conf.default"
-        $SDK_PATH/scripts/feeds update -a
-        $SDK_PATH/scripts/feeds install -a
-        
-    - name: Build package
+    - name: Add custom feed and update
       run: |
         cd $SDK_PATH
-        # 生成默认配置
+        echo "src-git fancontrol https://github.com/LeeHe-gif/luci-app-fancontrol.git" >> feeds.conf.default
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a -p fancontrol
+        
+    - name: Configure target
+      run: |
+        cd $SDK_PATH
+        # 设置目标架构
         cat > .config <<EOF
-        CONFIG_TARGET_rockchip=y
-        CONFIG_TARGET_rockchip_armv8=y
-        CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
-        CONFIG_PACKAGE_luci-app-fancontrol=y
-        CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=y
-        EOF
+CONFIG_TARGET_rockchip=y
+CONFIG_TARGET_rockchip_armv8=y
+CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
+CONFIG_PACKAGE_luci-app-fancontrol=m
+CONFIG_PACKAGE_luci-i18n-fancontrol-zh-cn=m
+EOF
         make defconfig
-        # 编译插件 (失败时显示详细日志)
-        make package/luci-app-fancontrol/compile -j$(nproc) || package/luci-app-fancontrol/compile V=s
+        
+    - name: Build toolchain first
+      run: |
+        cd $SDK_PATH
+        # 先编译工具链和基础依赖
+        make tools/compile -j$(nproc)
+        make toolchain/compile -j$(nproc)
+        
+    - name: Build package with dependencies
+      run: |
+        cd $SDK_PATH
+        # 查找正确的包路径
+        PACKAGE_PATH=$(find ./feeds -name "luci-app-fancontrol" -type d | head -1)
+        if [ -z "$PACKAGE_PATH" ]; then
+          echo "Package not found in feeds!"
+          find ./feeds -name "*fancontrol*" -type d
+          exit 1
+        fi
+        
+        echo "Found package at: $PACKAGE_PATH"
+        
+        # 编译依赖包 first
+        make package/fancontrol/compile -j$(nproc) || make package/fancontrol/compile V=s
+        
+    - name: Build main package
+      run: |
+        cd $SDK_PATH
+        # 使用更简单的方式编译
+        make package/feeds/fancontrol/luci-app-fancontrol/compile V=s -j1
         
     - name: Collect artifacts
       run: |
-        mkdir -p artifacts
-        find $SDK_PATH/bin -name "luci-app-fancontrol*.ipk" -exec cp {} artifacts/ \;
-        # 同时收集依赖包
-        find $SDK_PATH/bin -name "luci-i18n-*-zh-cn*.ipk" -exec cp {} artifacts/ \;
+        cd $SDK_PATH
+        mkdir -p ../artifacts
+        # 查找所有相关的ipk文件
+        find bin -name "*fancontrol*.ipk" -exec cp {} ../artifacts/ \;
+        find bin -name "*luci-app-fancontrol*.ipk" -exec cp {} ../artifacts/ \;
+        find bin -name "*luci-i18n-fancontrol*.ipk" -exec cp {} ../artifacts/ \;
+        
+        # 显示找到的文件
+        echo "Found artifacts:"
+        ls -la ../artifacts/
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -58,24 +101,29 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: success()
     
     steps:
     - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
         name: ipk-packages
+        path: ./release-artifacts
         
+    - name: List artifacts
+      run: ls -la ./release-artifacts/
+      
     - name: Create Release
       uses: softprops/action-gh-release@v2
+      if: success()
       with:
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
         body: |
-          LEDE 23.05 插件包 ( rockchip_armv8 架构)
+          LEDE 23.05 插件包 (rockchip_armv8 架构)
           包含:
           - luci-app-fancontrol 主程序
-          - 中文语言包 (如存在)
-        files: |
-          *.ipk
+          - 中文语言包
+        files: release-artifacts/*.ipk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
