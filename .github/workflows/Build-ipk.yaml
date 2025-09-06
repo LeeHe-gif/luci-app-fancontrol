@@ -39,7 +39,7 @@ jobs:
         EOF
         make defconfig
         # 编译插件 (失败时显示详细日志)
-        make package/feeds/fancontrol/luci-app-fancontrol/compile -j$(nproc) || package/feeds/fancontrol/luci-app-fancontrol/compile V=s
+        make package/luci-app-fancontrol/compile -j$(nproc) || package/luci-app-fancontrol/compile V=s
         
     - name: Collect artifacts
       run: |
