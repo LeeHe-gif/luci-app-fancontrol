@@ -50,17 +50,16 @@ jobs:
     
     # 创建一个基本的.config文件，避免menuconfig
     cat > .config << 'EOF'
-CONFIG_TARGET_rockchip_armv8=y
-CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
-# 设置一些基本配置
-CONFIG_ALL=y
-CONFIG_ALL_KMODS=y
-CONFIG_ALL_NONSHARED=y
-# 禁用一些不必要的特性以加速编译
-CONFIG_DEVEL=n
-CONFIG_CCACHE=n
-CONFIG_SIGNED_PACKAGES=n
-EOF
+    CONFIG_TARGET_rockchip_armv8=y
+    # 设置一些基本配置
+    CONFIG_ALL=y
+    CONFIG_ALL_KMODS=y
+    CONFIG_ALL_NONSHARED=y
+    # 禁用一些不必要的特性以加速编译
+    CONFIG_DEVEL=n
+    CONFIG_CCACHE=n
+    CONFIG_SIGNED_PACKAGES=n
+    EOF
     
     # 应用配置
     make defconfig
