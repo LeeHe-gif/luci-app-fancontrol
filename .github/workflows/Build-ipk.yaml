@@ -31,39 +31,32 @@ jobs:
         
     - name: Download OpenWrt SDK
       run: |
-        SDK_URL="http://downloads.openwrt.org/releases/23.05.6/targets/rockchip/armv8/openwrt-sdk-23.05.6-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
-        wget $SDK_URL
+        wget https://downloads.openwrt.org/releases/23.05.6/targets/rockchip/armv8/openwrt-sdk-23.05.6-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz
         tar xf openwrt-sdk-*.tar.xz
-        mv openwrt-sdk-* openwrt-sdk
+        # 自动处理目录名
+        SDK_DIR=$(ls -d openwrt-sdk-* 2>/dev/null || echo "openwrt-sdk")
+        mv "$SDK_DIR" openwrt-sdk
         echo "SDK_PATH=$PWD/openwrt-sdk" >> $GITHUB_ENV
         echo "STAGING_DIR=$PWD/openwrt-sdk/staging_dir" >> $GITHUB_ENV
         
     - name: Add fancontrol package to SDK
       run: |
         cd $SDK_PATH
-        # 将你的包源码复制到SDK的package目录
+        # 将当前仓库的代码复制到SDK中
         mkdir -p package/fancontrol
         cp -r $GITHUB_WORKSPACE/* package/fancontrol/
-        
-        # 或者使用git clone
-        # git clone https://github.com/LeeHe-gif/luci-app-fancontrol.git package/fancontrol
         
     - name: Build the package
       run: |
         cd $SDK_PATH
-        # 更新feeds
-        ./scripts/feeds update -a
-        
-     
-        make package/fancontrol/compile V=s -j$(nproc)
+        # 编译包
+        make package/fancontrol/compile V=s
         
     - name: Collect IPK files
       run: |
         cd $SDK_PATH
         mkdir -p ../artifacts
         find bin -name "*fancontrol*.ipk" -exec cp {} ../artifacts/ \;
-        find bin -name "*luci-app-fancontrol*.ipk" -exec cp {} ../artifacts/ \;
-        
         echo "Generated IPK files:"
         ls -la ../artifacts/
         
