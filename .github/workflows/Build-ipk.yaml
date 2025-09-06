@@ -44,11 +44,29 @@ jobs:
         # 将当前仓库的代码复制到SDK中
         git clone https://github.com/LeeHe-gif/luci-app-fancontrol.git package/fancontrol
         
-    - name: Build the package
-      run: |
-        cd $SDK_PATH
-        # 编译包
-        make package/fancontrol/compile V=s
+- name: Build the package
+  run: |
+    cd $SDK_PATH
+    
+    # 创建一个基本的.config文件，避免menuconfig
+    cat > .config << 'EOF'
+CONFIG_TARGET_rockchip_armv8=y
+CONFIG_TARGET_rockchip_armv8_DEVICE_widora_mangopi-m28c=y
+# 设置一些基本配置
+CONFIG_ALL=y
+CONFIG_ALL_KMODS=y
+CONFIG_ALL_NONSHARED=y
+# 禁用一些不必要的特性以加速编译
+CONFIG_DEVEL=n
+CONFIG_CCACHE=n
+CONFIG_SIGNED_PACKAGES=n
+EOF
+    
+    # 应用配置
+    make defconfig
+    
+    # 现在编译包
+    make package/fancontrol/compile V=s
         
     - name: Collect IPK files
       run: |
@@ -63,3 +81,28 @@ jobs:
       with:
         name: fancontrol-ipk
         path: artifacts/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ipk-packages
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Release ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
+        body: |
+          OpenWrt 23.05.06 插件包 (rockchip  armv8 架构)
+          包含:
+          - luci-app-fancontrol 主程序
+          - 中文语言包 (如存在)
+        files: |
+          *.ipk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
